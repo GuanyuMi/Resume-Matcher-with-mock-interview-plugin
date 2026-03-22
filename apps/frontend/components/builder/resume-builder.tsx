@@ -43,6 +43,8 @@ import {
 import { JDComparisonView } from './jd-comparison-view';
 import { RegenerateWizard } from './regenerate-wizard';
 import { useRegenerateWizard } from '@/hooks/use-regenerate-wizard';
+import { useAdaptiveMockInterview } from '@/hooks/use-adaptive-mock-interview';
+import { MockInterviewInsights, MockInterviewPanel } from './mock-interview-panel';
 import { useTranslations } from '@/lib/i18n';
 import { type TemplateSettings, DEFAULT_TEMPLATE_SETTINGS } from '@/lib/types/template-settings';
 import { withLocalizedDefaultSections } from '@/lib/utils/section-helpers';
@@ -50,7 +52,7 @@ import { useLanguage } from '@/lib/context/language-context';
 import { downloadBlobAsFile, openUrlInNewTab, sanitizeFilename } from '@/lib/utils/download';
 import type { RegenerateItemInput } from '@/lib/api/enrichment';
 
-type TabId = 'resume' | 'cover-letter' | 'outreach' | 'jd-match';
+type TabId = 'resume' | 'cover-letter' | 'outreach' | 'jd-match' | 'mock-interview';
 
 const STORAGE_KEY = 'resume_builder_draft';
 const SETTINGS_STORAGE_KEY = 'resume_builder_settings';
@@ -83,6 +85,19 @@ const buildInitialData = (t: Translate): ResumeData => ({
 const ResumeBuilderContent = () => {
   const { t } = useTranslations();
   const { uiLanguage, contentLanguage } = useLanguage();
+  const translateWithFallback = useCallback(
+    (key: string, english: string, chinese?: string) => {
+      const translated = t(key);
+      if (translated !== key) {
+        return translated;
+      }
+      if (uiLanguage.startsWith('zh')) {
+        return chinese ?? english;
+      }
+      return english;
+    },
+    [t, uiLanguage]
+  );
   const [notificationDialog, setNotificationDialog] = useState<{
     title: string;
     description: string;
@@ -155,6 +170,11 @@ const ResumeBuilderContent = () => {
 
   // JD comparison state
   const [jobDescription, setJobDescription] = useState<string | null>(null);
+  const mockInterview = useAdaptiveMockInterview({
+    resumeId,
+    hasJobContext: Boolean(jobDescription),
+    language: contentLanguage,
+  });
 
   // AI Regenerate wizard
   const regenerateWizard = useRegenerateWizard({
@@ -746,6 +766,12 @@ const ResumeBuilderContent = () => {
                   {activeTab === 'cover-letter' && t('builder.leftPanel.coverLetterEditor')}
                   {activeTab === 'outreach' && t('builder.leftPanel.outreachEditor')}
                   {activeTab === 'jd-match' && t('builder.leftPanel.jdMatchAnalysis')}
+                  {activeTab === 'mock-interview' &&
+                    translateWithFallback(
+                      'builder.leftPanel.mockInterview',
+                      'Mock Interview',
+                      '模拟面试'
+                    )}
                 </h2>
               </div>
 
@@ -841,6 +867,8 @@ const ResumeBuilderContent = () => {
                   </div>
                 </div>
               )}
+
+              {activeTab === 'mock-interview' && <MockInterviewPanel controller={mockInterview} />}
             </div>
           </div>
 
@@ -865,6 +893,15 @@ const ResumeBuilderContent = () => {
                     id: 'jd-match',
                     label: t('builder.previewTabs.jdMatch'),
                     disabled: !jobDescription,
+                  },
+                  {
+                    id: 'mock-interview',
+                    label: translateWithFallback(
+                      'builder.previewTabs.mockInterview',
+                      'Mock Interview',
+                      '模拟面试'
+                    ),
+                    disabled: !resumeId || !jobDescription,
                   },
                 ]}
                 activeTab={activeTab}
@@ -919,6 +956,10 @@ const ResumeBuilderContent = () => {
               {/* JD Match Comparison */}
               {activeTab === 'jd-match' && jobDescription && (
                 <JDComparisonView jobDescription={jobDescription} resumeData={resumeData} />
+              )}
+
+              {activeTab === 'mock-interview' && (
+                <MockInterviewInsights controller={mockInterview} />
               )}
             </div>
           </div>

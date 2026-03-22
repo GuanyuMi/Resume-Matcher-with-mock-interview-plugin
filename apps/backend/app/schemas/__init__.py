@@ -49,6 +49,17 @@ from app.schemas.models import (
     UpdateOutreachMessageRequest,
     UpdateTitleRequest,
 )
+from app.schemas.mock_interview import (
+    InterviewHistoryItem,
+    InterviewOption,
+    InterviewStats,
+    MockInterviewAnswerRequest,
+    MockInterviewAnswerResponse,
+    MockInterviewSessionCreateRequest,
+    MockInterviewSessionCreateResponse,
+    MockInterviewSessionResponse,
+    PublicInterviewQuestion,
+)
 
 __all__ = [
     "PersonalInfo",
@@ -98,4 +109,13 @@ __all__ = [
     "GenerateContentResponse",
     "HealthResponse",
     "StatusResponse",
+    "InterviewOption",
+    "PublicInterviewQuestion",
+    "InterviewStats",
+    "InterviewHistoryItem",
+    "MockInterviewSessionCreateRequest",
+    "MockInterviewSessionCreateResponse",
+    "MockInterviewAnswerRequest",
+    "MockInterviewAnswerResponse",
+    "MockInterviewSessionResponse",
 ]

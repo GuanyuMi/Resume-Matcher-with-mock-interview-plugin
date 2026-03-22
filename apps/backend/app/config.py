@@ -185,9 +185,16 @@ class Settings(BaseSettings):
         return self.data_dir / "database.json"
 
     @property
+    def mock_interview_db_path(self) -> Path:
+        """Path to adaptive mock interview SQLite database."""
+        return self.data_dir / "mock_interview.sqlite3"
+
+    @property
     def config_path(self) -> Path:
         """Path to config storage file."""
         return self.data_dir / "config.json"
+
+    mock_interview_decay_hours: float = 72.0
 
     def get_effective_api_key(self) -> str:
         """Get the effective API key with config file fallback.
