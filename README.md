@@ -33,6 +33,25 @@ Create tailored resumes for each job application with AI-powered suggestions. Wo
 >
 > This project is in active development. New features are being added continuously, and we welcome contributions from the community. If you have any suggestions or feature requests, please feel free to open an issue on GitHub or discuss it on our [Discord](https://dsc.gg/resume-matcher) server.
 
+## Featured Extension
+
+### Adaptive Mock Interview
+
+An adaptive interview-practice extension built on top of Resume Matcher that transforms JD analysis and structured resume data into personalized technical interview preparation.
+
+- Generate JD-aware technical interview questions grounded in the candidate's resume
+- Track answer accuracy, response time, and topic history with SQLite
+- Adapt question difficulty using LangGraph orchestration and scikit-learn-based performance modeling
+
+
+| Session Setup | Question Experience |
+|---------------|---------------------|
+| ![Adaptive Mock Interview Setup](assets/mock_interview1.png) | ![Adaptive Mock Interview Question](assets/mock_interview2.png) |
+
+Project details:
+
+- [Adaptive Mock Interview Project Overview](adaptive_mock_interview/README.md)
+
 ## Getting Started
 
 Resume Matcher works by creating a master resume that you can use to tailor for each job application. Installation instructions here: [How to Install](#how-to-install)
@@ -45,6 +64,7 @@ Resume Matcher works by creating a master resume that you can use to tailor for 
 4. **Cover Letter & Email** generator for the job application
 5. **Customize** the layout and sections to fit your style
 6. **Export** as a professional PDF with your preferred template
+7. **Practice Mock Interviews** with adaptive, JD-aware technical questions
 
 ### Stay Connected
 
@@ -129,6 +149,27 @@ You can:
 Generate tailored cover letters and email templates based on the job description and your resume.
 
 ![Cover Letter](assets/cover_letter.png)
+
+### Adaptive Mock Interview
+
+Practice for the actual interview after tailoring your resume.
+
+This extension turns the same job description and structured resume data into a personalized mock interview workflow:
+
+- Generate technical multiple-choice questions grounded in the JD and candidate resume
+- Track answer accuracy, response time, and topic history
+- Adapt the next question difficulty using performance signals and retention modeling
+- Surface ideal answers and targeted weak areas for focused practice
+
+![Adaptive Mock Interview](assets/mock_interview1.png)
+
+| Session Setup | Question Experience |
+|---------------|---------------------|
+| ![Adaptive Mock Interview Setup](assets/mock_interview2.png) | ![Adaptive Mock Interview Question](assets/mock_interview3.png) |
+
+Project details and architecture:
+
+- [Adaptive Mock Interview Project Overview](adaptive_mock_interview/README.md)
 
 ### Resume Scoring (In development feature)
 

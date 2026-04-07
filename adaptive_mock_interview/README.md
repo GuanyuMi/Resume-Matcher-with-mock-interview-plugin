@@ -2,7 +2,13 @@
 
 Adaptive Mock Interview is a full-stack extension for Resume Matcher that turns job descriptions and structured resume data into a personalized interview practice workflow.
 
-![Adaptive Mock Interview UI](../assets/mock_interview1.png)
+##### Session Setup                                                          
+![Adaptive Mock Interview Overview](../assets/mock_interview1.png) 
+
+##### Question Experience
+ ![Adaptive Mock Interview Setup](../assets/mock_interview2.png) 
+ ![Adaptive Mock Interview Question](../assets/mock_interview3.png)
+
 
 ## Overview
 
