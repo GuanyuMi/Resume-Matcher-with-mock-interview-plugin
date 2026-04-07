@@ -66,7 +66,7 @@ class MockInterviewLLMEngine:
 
         graph = StateGraph(InterviewGraphState)
         graph.add_node("prepare", self._prepare_state)
-        graph.add_node("draft", lambda state: self._draft_question_payload(state, language=language))
+        graph.add_node("draft", self._build_draft_node(language))
         graph.add_node("validate", self._validate_state)
         graph.set_entry_point("prepare")
         graph.add_edge("prepare", "draft")
@@ -83,6 +83,12 @@ class MockInterviewLLMEngine:
         )
         payload = result.get("question_payload", {})
         return self._normalize_question(payload, context=context, difficulty=difficulty)
+
+    def _build_draft_node(self, language: str):
+        async def draft_node(state: InterviewGraphState) -> InterviewGraphState:
+            return await self._draft_question_payload(state, language=language)
+
+        return draft_node
 
     def _select_topic(self, context: dict[str, Any], attempts: list[dict[str, Any]]) -> str:
         focus_areas = list(context.get("focus_areas", []))

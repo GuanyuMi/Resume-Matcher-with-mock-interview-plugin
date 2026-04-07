@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import logging
+import re
 from typing import Any
 from uuid import uuid4
 
@@ -14,6 +16,41 @@ from app.adaptive_mock_interview.predictor import DifficultyPredictor
 from app.config import settings
 from app.database import db
 from app.services.improver import extract_job_keywords
+
+logger = logging.getLogger(__name__)
+
+_FALLBACK_SKILL_PATTERNS: tuple[tuple[str, str], ...] = (
+    ("Python", r"\bpython\b"),
+    ("JavaScript", r"\bjavascript\b"),
+    ("TypeScript", r"\btypescript\b"),
+    ("FastAPI", r"\bfastapi\b"),
+    ("LangGraph", r"\blanggraph\b"),
+    ("LangChain", r"\blangchain\b"),
+    ("PyTorch", r"\bpytorch\b"),
+    ("TensorFlow", r"\btensorflow\b"),
+    ("Scikit-learn", r"\bscikit[- ]learn\b"),
+    ("Machine Learning", r"\bmachine learning\b"),
+    ("AI/ML model development", r"\bai/ml model development\b"),
+    ("Deep Learning", r"\bdeep learning\b"),
+    ("Generative AI", r"\bgenerative ai\b"),
+    ("LLM", r"\bllm[s]?\b"),
+    ("MLLM", r"\bmllm[s]?\b"),
+    ("AIGC", r"\baigc\b"),
+    ("Computer Vision", r"\bcomputer vision\b"),
+    ("Image Generation", r"\bimage generation\b"),
+    ("Multimodal", r"\bmultimodal\b"),
+    ("Reinforcement Learning", r"\breinforcement learning\b"),
+    ("Post-training optimization", r"\bpost[- ]training optimization\b"),
+    ("Diffusion Models", r"\bdiffusion model[s]?\b"),
+    ("GANs", r"\bgan[s]?\b"),
+    ("VAEs", r"\bvae[s]?\b"),
+    ("Docker", r"\bdocker\b"),
+    ("SQL", r"\bsql\b"),
+    ("PostgreSQL", r"\bpostgres(?:ql)?\b"),
+    ("Azure", r"\bazure\b"),
+    ("AWS", r"\baws\b"),
+    ("GCP", r"\bgcp\b"),
+)
 
 
 class AdaptiveMockInterviewService:
@@ -74,6 +111,123 @@ class AdaptiveMockInterviewService:
             "source_requirement": question.get("source_requirement"),
         }
 
+    @staticmethod
+    def _dedupe_strings(values: list[Any], *, limit: int = 8) -> list[str]:
+        seen: set[str] = set()
+        result: list[str] = []
+        for value in values:
+            cleaned = re.sub(r"\s+", " ", str(value or "")).strip(" -\t\r\n")
+            if not cleaned:
+                continue
+            key = cleaned.casefold()
+            if key in seen:
+                continue
+            seen.add(key)
+            result.append(cleaned)
+            if len(result) >= limit:
+                break
+        return result
+
+    @classmethod
+    def _normalize_job_keywords(cls, payload: Any) -> dict[str, list[str]]:
+        if not isinstance(payload, dict):
+            return {
+                "required_skills": [],
+                "preferred_skills": [],
+                "keywords": [],
+                "key_responsibilities": [],
+            }
+        return {
+            "required_skills": cls._dedupe_strings(list(payload.get("required_skills") or [])),
+            "preferred_skills": cls._dedupe_strings(list(payload.get("preferred_skills") or [])),
+            "keywords": cls._dedupe_strings(list(payload.get("keywords") or [])),
+            "key_responsibilities": cls._dedupe_strings(
+                list(payload.get("key_responsibilities") or [])
+            ),
+        }
+
+    @staticmethod
+    def _has_keyword_signal(payload: dict[str, list[str]]) -> bool:
+        return any(payload.get(key) for key in ("required_skills", "preferred_skills", "keywords", "key_responsibilities"))
+
+    @classmethod
+    def _fallback_job_keywords(cls, job_content: str) -> dict[str, list[str]]:
+        lines = [
+            re.sub(r"\s+", " ", line).strip(" -*\t\r\n")
+            for line in job_content.splitlines()
+        ]
+        lines = [line for line in lines if line and len(line) >= 12]
+
+        responsibilities: list[str] = []
+        collecting_responsibilities = False
+        for line in lines:
+            lowered = line.casefold()
+            if "responsibilit" in lowered:
+                collecting_responsibilities = True
+                continue
+            if collecting_responsibilities and any(
+                marker in lowered for marker in ("qualification", "requirement", "preferred", "minimum")
+            ):
+                collecting_responsibilities = False
+            if collecting_responsibilities:
+                responsibilities.append(line)
+
+        detected_skills = [
+            label
+            for label, pattern in _FALLBACK_SKILL_PATTERNS
+            if re.search(pattern, job_content, flags=re.IGNORECASE)
+        ]
+
+        if not responsibilities:
+            responsibilities = [
+                line for line in lines
+                if any(
+                    token in line.casefold()
+                    for token in ("develop", "build", "design", "lead", "manage", "optimiz", "implement")
+                )
+            ]
+
+        return {
+            "required_skills": cls._dedupe_strings(detected_skills),
+            "preferred_skills": [],
+            "keywords": cls._dedupe_strings(detected_skills + lines[:6]),
+            "key_responsibilities": cls._dedupe_strings(responsibilities),
+        }
+
+    async def _resolve_job_keywords(self, job: dict[str, Any]) -> dict[str, list[str]]:
+        cached_keywords = self._normalize_job_keywords(job.get("job_keywords"))
+        if self._has_keyword_signal(cached_keywords):
+            return cached_keywords
+
+        try:
+            extracted_keywords = self._normalize_job_keywords(
+                await extract_job_keywords(job["content"])
+            )
+        except Exception as exc:
+            logger.warning(
+                "Mock interview keyword extraction failed for job %s; using local fallback. Error: %s",
+                job.get("job_id"),
+                exc,
+            )
+            return self._fallback_job_keywords(job["content"])
+
+        if self._has_keyword_signal(extracted_keywords):
+            try:
+                db.update_job(job["job_id"], {"job_keywords": extracted_keywords})
+            except Exception as exc:
+                logger.warning(
+                    "Failed to cache extracted job keywords for job %s: %s",
+                    job.get("job_id"),
+                    exc,
+                )
+            return extracted_keywords
+
+        logger.warning(
+            "Keyword extraction returned no usable data for job %s; using local fallback.",
+            job.get("job_id"),
+        )
+        return self._fallback_job_keywords(job["content"])
+
     def _build_stats(self, session: dict[str, Any], attempts: list[dict[str, Any]]) -> dict[str, Any]:
         total_answered = len(attempts)
         correct_answers = sum(int(attempt.get("correct", 0)) for attempt in attempts)
@@ -124,7 +278,7 @@ class AdaptiveMockInterviewService:
             )
 
         job = self._resolve_job_for_resume(resume_id, job_id)
-        job_keywords = await extract_job_keywords(job["content"])
+        job_keywords = await self._resolve_job_keywords(job)
         context = build_interview_context(
             resume_id=resume_id,
             job_id=job["job_id"],
